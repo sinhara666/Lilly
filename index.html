@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Yio Med Spa Chatbot</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Space Mono', monospace;
+      background-color: #06080f;
+      color: #f0faff;
+      margin: 0;
+      padding: 0;
+    }
+    .surface {
+      background-color: #0c1020;
+      padding: 16px;
+    }
+    .accent {
+      color: #cc00ff;
+    }
+    .cyan {
+      color: #00f0ff;
+    }
+    .green {
+      color: #00ff88;
+    }
+    .button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #cc00ff;
+    }
+    .button:hover {
+      box-shadow: 0 0 20px #cc00ff;
+    }
+    .setup-screen {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+    .setup-screen h2 {
+      color: #e040fb;
+    }
+    .setup-screen a {
+      color: #00f0ff;
+      text-decoration: none;
+    }
+    .setup-screen input {
+      padding: 8px;
+      border: none;
+      border-radius: 8px;
+      width: 200px;
+    }
+    .setup-screen button {
+      background: linear-gradient(to right, #cc00ff, #00f0ff);
+      color: #0c1020;
+      padding: 8px 16px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+    }
+    .sidebar {
+      display: none;
+      background-color: #0c1020;
+      padding: 16px;
+      width: 240px;
+      height: 100vh;
+      position: fixed;
+      top: 0;
+      left: 0;
+    }
+    .sidebar .bot-name {
+      color: #cc00ff;
+    }
+    .sidebar .niche {
+      color: #00f0ff;
+    }
+    .sidebar .online-dot {
+      color: #00ff88;
+      font-size: 12px;
+    }
+    .main-area {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+    }
+    .main-area .header {
+      background-color: #0c1020;
+      padding: 16px;
+    }
+    .main-area .messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+    }
+    .main-area .input-row {
+      background-color: #0c1020;
+      padding: 16px;
+      display: flex;
+    }
+    .main-area .input-row input {
+      padding: 8px;
+      border: none;
+      border-radius: 8px;
+      width: 80%;
+    }
+    .main-area .input-row button {
+      padding: 8px 16px;
+      border: none;
+      border-radius: 16px;
+      cursor: pointer;
+      box-shadow: 0 0 10px #cc00ff;
+    }
+    .message-bubble {
+      padding: 8px;
+      border-radius: 16px;
+    }
+    .message-bubble.left {
+      background-color: #cc00ff;
+      color: #0c1020;
+    }
+    .message-bubble.right {
+      background-color: #00f0ff;
+      color: #0c1020;
+    }
+    @media (min-width: 768px) {
+      .sidebar {
+        display: block;
+      }
+      .main-area {
+        margin-left: 240px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="surface">
+    <button class="button" id="toggle-sidebar">Toggle Sidebar</button>
+    <div class="sidebar" id="sidebar">
+      <h2 class="bot-name">Yio</h2>
+      <p class="niche">Med Spa</p>
+      <p class="online-dot">🟢</p>
+      <button class="button" onclick="sendMessage('What services do you offer?')">What services do you offer?</button>
+      <button class="button" onclick="sendMessage('How do I schedule an appointment?')">How do I schedule an appointment?</button>
+      <button class="button" onclick="sendMessage('What are your business hours?')">What are your business hours?</button>
+      <button class="button" onclick="sendMessage('Do you offer any discounts?')">Do you offer any discounts?</button>
+      <button class="button" onclick="sendMessage('How do I cancel an appointment?')">How do I cancel an appointment?</button>
+    </div>
+    <div class="main-area" id="main-area">
+      <div class="header">
+        <h2>Yio</h2>
+      </div>
+      <div class="messages" id="messages"></div>
+      <div class="input-row">
+        <input type="text" id="input" placeholder="Type a message...">
+        <button class="button" id="send-button" onclick="sendMessage(document.getElementById('input').value)">Send</button>
+      </div>
+    </div>
+    <div class="setup-screen" id="setup-screen" style="display: none;">
+      <h2>🔑 Yio runs on your free Groq key</h2>
+      <p>Get your free key at <a href="https://console.groq.com">console.groq.com</a> — free, no credit card, 30 seconds</p>
+      <input type="text" id="key-input" placeholder="Paste your gsk_ key here...">
+      <button class="button" id="start-button" onclick="startChatting()">Start chatting →</button>
+      <p id="error" style="color: #e040fb; display: none;">Key must start with gsk_</p>
+    </div>
+  </div>
+  <script>
+    const SYSTEM_PROMPT = "You are Yio, expert Receptionist Bot for Med Spa. Speak English. Help with: Appointment intake, FAQ answers, Callback notes, Lead qualification. Stay in character. Keep replies to 2-4 sentences.";
+    const history = [];
+    let key = localStorage.getItem('_bk');
+    if (key) {
+      key = xorStr(key, 'SINSTUDIO');
+      document.getElementById('setup-screen').style.display = 'none';
+      document.getElementById('main-area').style.display = 'flex';
+      document.getElementById('input').disabled = false;
+      document.getElementById('send-button').disabled = false;
+      welcomeMessage();
+    } else {
+      document.getElementById('setup-screen').style.display = 'flex';
+      document.getElementById('main-area').style.display = 'none';
+      document.getElementById('input').disabled = true;
+      document.getElementById('send-button').disabled = true;
+    }
+    function xorStr(a, b) {
+      let o = '';
+      for (let i = 0; i < a.length; i++) {
+        o += String.fromCharCode(a.charCodeAt(i) ^ b.charCodeAt(i % b.length));
+      }
+      return o;
+    }
+    async function callGroq(msgs) {
+      const raw = localStorage.getItem('_bk');
+      const key = raw ? xorStr(raw, 'SINSTUDIO') : '';
+      const r = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + key },
+        body: JSON.stringify({ model: 'llama-3.3-70b-versatile', messages: msgs, max_tokens: 400 })
+      });
+      const d = await r.json();
+      if (!r.ok) throw new Error(d.error?.message || 'Groq error');
+      return d.choices[0].message.content;
+    }
+    function welcomeMessage() {
+      const message = 'Hello! Welcome to Yio Med Spa. How can I assist you today?';
+      history.push({ role: 'assistant', content: message });
+      displayMessage(message, 'left');
+    }
+    function displayMessage(message, alignment) {
+      const messageBubble = document.createElement('div');
+      messageBubble.classList.add('message-bubble');
+      messageBubble.classList.add(alignment);
+      messageBubble.textContent = message;
+      document.getElementById('messages').appendChild(messageBubble);
+    }
+    function sendMessage(message) {
+      history.push({ role: 'user', content: message });
+      displayMessage(message, 'right');
+      callGroq([{ role: 'system', content: SYSTEM_PROMPT }, ...history.slice(-10)]).then(reply => {
+        history.push({ role: 'assistant', content: reply });
+        displayMessage(reply, 'left');
+      });
+      document.getElementById('input').value = '';
+    }
+    function startChatting() {
+      const keyInput = document.getElementById('key-input').value;
+      if (keyInput.startsWith('gsk_')) {
+        key = xorStr(keyInput, 'SINSTUDIO');
+        localStorage.setItem('_bk', key);
+        document.getElementById('setup-screen').style.display = 'none';
+        document.getElementById('main-area').style.display = 'flex';
+        document.getElementById('input').disabled = false;
+        document.getElementById('send-button').disabled = false;
+        welcomeMessage();
+      } else {
+        document.getElementById('error').style.display = 'block';
+      }
+    }
+    document.getElementById('toggle-sidebar').addEventListener('click', () => {
+      document.getElementById('sidebar').style.display = document.getElementById('sidebar').style.display === 'block' ? 'none' : 'block';
+    });
+  </script>
+</html>
